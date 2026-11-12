@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Spidey Sandbox VR</title>
+    <style>
+      :root {
+        --bg1: #08111d;
+        --bg2: #101a2c;
+        --white: #eaf7ff;
+        --panel: rgba(12, 19, 28, 0.52);
+        --line: rgba(255, 255, 255, 0.18);
+        --blue: #77d9ff;
+        --teal: #4ba9ae;
+        --orange: #ff9d52;
+      }
+
+      html, body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: radial-gradient(circle at 50% 25%, var(--bg2), var(--bg1) 56%, #040a12 100%);
+        color: var(--white);
+        font-family: Arial, sans-serif;
+      }
+
+      #hud {
+        position: absolute;
+        top: 18px;
+        left: 20px;
+        z-index: 10;
+        padding: 10px 16px;
+        border-radius: 999px;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        font-size: 12px;
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        user-select: none;
+      }
+
+      #crosshair {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 20px;
+        height: 20px;
+        transform: translate(-50%, -50%);
+        opacity: 0.7;
+        pointer-events: none;
+      }
+
+      #crosshair::before,
+      #crosshair::after {
+        content: "";
+        position: absolute;
+        background: rgba(255,255,255,0.9);
+        box-shadow: 0 0 8px rgba(119, 217, 255, 0.7);
+      }
+
+      #crosshair::before {
+        left: 9px;
+        top: 0;
+        width: 2px;
+        height: 20px;
+      }
+
+      #crosshair::after {
+        left: 0;
+        top: 9px;
+        width: 20px;
+        height: 2px;
+      }
+
+      canvas {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="hud">Spidey Sandbox</div>
+    <div id="crosshair"></div>
+
+    <script type="module">
+      import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js';
+      import { XRButton } from 'https://cdn.jsdelivr.net/npm/three@0.164.1/examples/jsm/webxr/XRButton.js';
+
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color('#071421');
+      scene.fog = new THREE.Fog('#071421', 10, 34);
+
+      const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 100);
+      camera.position.set(0, 1.6, 4.5);
+
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setClearColor('#08111d');
+      renderer.xr.enabled = true;
+      document.body.appendChild(renderer.domElement);
+
+      document.body.appendChild(
+        XRButton.createButton(renderer, {
+          requiredFeatures: ['local-floor'],
+          optionalFeatures: ['hit-test']
+        })
+      );
+
+      const hemi = new THREE.HemisphereLight('#d6f1ff', '#0a111a', 1.2);
+      scene.add(hemi);
+
+      const dir = new THREE.DirectionalLight('#dceeff', 1.6);
+      dir.position.set(3, 6, 4);
+      scene.add(dir);
+
+      const ground = new THREE.Mesh(
+        new THREE.CircleGeometry(12, 64),
+        new THREE.MeshStandardMaterial({
+          color: '#1a2c3a',
+          roughness: 0.92,
+          metalness: 0.18
+        })
+      );
+      ground.rotation.x = -Math.PI / 2;
+      ground.position.y = -0.01;
+      scene.add(ground);
+
+      const wallMat = new THREE.MeshStandardMaterial({
+        color: '#24384e',
+        roughness: 0.8,
+        metalness: 0.12
+      });
+      const wallGeo = new THREE.BoxGeometry(20, 4.2, 0.5);
+
+      const backWall = new THREE.Mesh(wallGeo, wallMat);
+      backWall.position.set(0, 2.1, -7.5);
+      scene.add(backWall);
+
+      const leftWall = new THREE.Mesh(wallGeo, wallMat);
+      leftWall.rotation.y = Math.PI / 2;
+      leftWall.position.set(-7.5, 2.1, 0);
+      scene.add(leftWall);
+
+      const rightWall = new THREE.Mesh(wallGeo, wallMat);
+      rightWall.rotation.y = Math.PI / 2;
+      rightWall.position.set(7.5, 2.1, 0);
+      scene.add(rightWall);
+
+      const anchorGroup = new THREE.Group();
+      scene.add(anchorGroup);
+
+      const anchorMaterial = new THREE.MeshStandardMaterial({
+        color: '#d9f0ff',
+        emissive: '#53baff',
+        emissiveIntensity: 0.4,
+        roughness: 0.3,
+        metalness: 0.6
+      });
+
+      function addAnchor(x, y, z) {
+        const anchor = new THREE.Mesh(new THREE.OctahedronGeometry(0.28, 1), anchorMaterial);
+        anchor.position.set(x, y, z);
+        anchorGroup.add(anchor);
+
+        const ring = new THREE.Mesh(
+          new THREE.TorusGeometry(0.42, 0.03, 12, 32),
+          new THREE.MeshStandardMaterial({
+            color: '#8ad8ff',
+            emissive: '#5cc8ff',
+            emissiveIntensity: 0.8
+          })
+        );
+        ring.rotation.x = Math.PI / 2;
+        ring.position.copy(anchor.position);
+        anchorGroup.add(ring);
+
+        return { anchor, ring };
+      }
+
+      const anchors = [
+        addAnchor(-2.2, 1.5, -2),
+        addAnchor(2.4, 1.9, -1.4),
+        addAnchor(0.3, 2.5, 1.8),
+        addAnchor(-3.5, 2.9, 2.2),
+        addAnchor(3.6, 2.4, 2.3)
+      ];
+
+      const webLineMat = new THREE.LineBasicMaterial({
+        color: '#edf6ff',
+        transparent: true,
+        opacity: 0.8
+      });
+
+      const webLine = new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(0, 1.7, 0),
+          new THREE.Vector3(-2.2, 1.4, -2),
+          new THREE.Vector3(0.3, 2.6, 1.8),
+          new THREE.Vector3(2.4, 1.9, -1.4),
+          new THREE.Vector3(0, 1.7, 0)
+        ]),
+        webLineMat
+      );
+      scene.add(webLine);
+
+      const platformMat = new THREE.MeshStandardMaterial({
+        color: '#7d8ea7',
+        roughness: 0.7,
+        metalness: 0.24
+      });
+
+      for (let i = 0; i < 5; i++) {
+        const p = new THREE.Mesh(new THREE.CylinderGeometry(0.58, 0.68, 0.42, 12), platformMat);
+        p.position.set((i - 2) * 1.8, 0.21, -2 + (i % 2) * 2);
+        scene.add(p);
+      }
+
+      const hero = new THREE.Group();
+      scene.add(hero);
+
+      const suit = new THREE.MeshStandardMaterial({
+        color: '#192d43',
+        roughness: 0.52,
+        metalness: 0.22
+      });
+
+      const armor = new THREE.MeshStandardMaterial({
+        color: '#3c7c80',
+        roughness: 0.38,
+        metalness: 0.35
+      });
+
+      const dark = new THREE.MeshStandardMaterial({
+        color: '#0f1a24',
+        roughness: 0.62
+      });
+
+      const visor = new THREE.MeshStandardMaterial({
+        color: '#d9f5ff',
+        emissive: '#7bdaff',
+        emissiveIntensity: 0.42,
+        roughness: 0.2,
+        metalness: 0.45
+      });
+
+      const accent = new THREE.MeshStandardMaterial({
+        color: '#f3a553',
+        emissive: '#b6571d',
+        emissiveIntensity: 0.18,
+        metalness: 0.35,
+        roughness: 0.42
+      });
+
+      function ellipsoid(parent, material, position, scale, geometry = new THREE.SphereGeometry(1, 24, 18)) {
+        const mesh = new THREE.Mesh(geometry, material);
+        mesh.position.set(...position);
+        mesh.scale.set(...scale);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        parent.add(mesh);
+        return mesh;
+      }
+
+      function limb(parent, material, start, end, radiusStart, radiusEnd = radiusStart) {
+        const a = new THREE.Vector3(...start);
+        const b = new THREE.Vector3(...end);
+        const direction = b.clone().sub(a);
+        const cylinder = new THREE.Mesh(
+          new THREE.CylinderGeometry(radiusEnd, radiusStart, direction.length(), 16),
+          material
+        );
+        cylinder.position.copy(a).add(b).multiplyScalar(0.5);
+        cylinder.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.clone().normalize());
+        cylinder.castShadow = true;
+        parent.add(cylinder);
+        ellipsoid(parent, material, start, [radiusStart, radiusStart, radiusStart]);
+        ellipsoid(parent, material, end, [radiusEnd, radiusEnd, radiusEnd]);
+        return cylinder;
+      }
+
+      limb(hero, dark, [0, 1.35, 0], [0, 1.54, 0], 0.12);
+
+      const torso = new THREE.Mesh(
+        new THREE.LatheGeometry([
+          new THREE.Vector2(0.2, 0.56),
+          new THREE.Vector2(0.28, 0.7),
+          new THREE.Vector2(0.32, 0.93),
+          new THREE.Vector2(0.39, 1.18),
+          new THREE.Vector2(0.35, 1.38),
+          new THREE.Vector2(0.22, 1.45)
+        ], 32),
+        suit
+      );
+      torso.castShadow = true;
+      hero.add(torso);
+
+      ellipsoid(hero, armor, [0, 1.1, 0.29], [0.28, 0.31, 0.055]);
+      ellipsoid(hero, accent, [0, 1.1, 0.34], [0.055, 0.19, 0.025]);
+      ellipsoid(hero, accent, [-0.08, 1.07, 0.335], [0.045, 0.12, 0.025]).rotation.z = -0.5;
+      ellipsoid(hero, accent, [0.08, 1.07, 0.335], [0.045, 0.12, 0.025]).rotation.z = 0.5;
+
+      for (const side of [-1, 1]) {
+        ellipsoid(hero, armor, [side * 0.39, 1.34, 0], [0.19, 0.17, 0.2]);
+
+        limb(hero, suit, [side * 0.43, 1.3, 0], [side * 0.55, 1.02, 0.02], 0.12, 0.095);
+        ellipsoid(hero, armor, [side * 0.55, 1.02, 0.02], [0.105, 0.11, 0.105]);
+        limb(hero, suit, [side * 0.55, 1.02, 0.02], [side * 0.61, 0.76, 0.08], 0.09, 0.07);
+        limb(hero, dark, [side * 0.61, 0.76, 0.08], [side * 0.63, 0.65, 0.11], 0.075, 0.065);
+        ellipsoid(hero, armor, [side * 0.63, 0.61, 0.12], [0.09, 0.11, 0.075]);
+
+        limb(hero, suit, [side * 0.17, 0.64, 0], [side * 0.2, 0.34, 0.01], 0.15, 0.105);
+        ellipsoid(hero, armor, [side * 0.2, 0.34, 0.01], [0.11, 0.12, 0.11]);
+        limb(hero, suit, [side * 0.2, 0.34, 0.01], [side * 0.21, 0.12, 0.02], 0.105, 0.085);
+        ellipsoid(hero, dark, [side * 0.21, 0.09, 0.08], [0.12, 0.09, 0.2]);
+        ellipsoid(hero, accent, [side * 0.21, 0.18, 0.02], [0.11, 0.035, 0.11]);
+      }
+
+      ellipsoid(hero, suit, [0, 1.66, 0], [0.205, 0.25, 0.19]);
+      ellipsoid(hero, dark, [0, 1.54, 0.055], [0.17, 0.1, 0.17]);
+
+      for (const side of [-1, 1]) {
+        const eye = ellipsoid(hero, visor, [side * 0.092, 1.69, 0.164], [0.065, 0.09, 0.035]);
+        eye.rotation.z = side * -0.22;
+      }
+
+      for (const side of [-1, 1]) {
+        ellipsoid(hero, accent, [side * 0.29, 0.94, 0.1], [0.035, 0.1, 0.025]);
+      }
+
+      hero.position.set(0, 0, 0);
+
+      const webEffect = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.02, 0.02, 1.8, 12),
+        new THREE.MeshStandardMaterial({
+          color: '#f1f7ff',
+          emissive: '#7ecbff',
+          emissiveIntensity: 0.8
+        })
+      );
+      webEffect.visible = false;
+      webEffect.rotation.x = Math.PI / 2;
+      hero.add(webEffect);
+
+      const pointer = new THREE.Vector2();
+
+      window.addEventListener('pointerdown', () => {
+        webEffect.visible = true;
+      });
+
+      window.addEventListener('pointerup', () => {
+        webEffect.visible = false;
+      });
+
+      window.addEventListener('pointermove', (event) => {
+        pointer.x = (event.clientX / window.innerWidth) * 2 - 1;
+        pointer.y = -(event.clientY / window.innerHeight) * 2 + 1;
+      });
+
+      const clock = new THREE.Clock();
+
+      function animate() {
+        const t = clock.getElapsedTime();
+
+        anchors.forEach((item, index) => {
+          item.anchor.position.y += Math.sin(t * 1.5 + index) * 0.0009;
+          item.anchor.position.x += Math.sin(t * 0.9 + index) * 0.0012;
+          item.anchor.position.z += Math.cos(t * 0.9 + index) * 0.0012;
+          item.ring.rotation.z += 0.011;
+          item.ring.rotation.x += 0.004;
+        });
+
+        const wave = Math.sin(t * 2.1) * 0.08;
+        hero.position.y = 0.02 + wave;
+        hero.rotation.y += 0.01;
+
+        if (webEffect.visible) {
+          webEffect.scale.y = 1 + Math.sin(t * 18) * 0.2;
+        }
+
+        camera.position.x = Math.sin(t * 0.42) * 1.2;
+        camera.position.z = 4.5 + Math.cos(t * 0.42) * 0.7;
+        camera.lookAt(0, 1.5, 0);
+
+        const points = [
+          new THREE.Vector3(0, 1.7, 0),
+          new THREE.Vector3(-2.2, 1.4 + Math.sin(t * 1.1) * 0.3, -2),
+          new THREE.Vector3(0.3, 2.6 + Math.sin(t * 1.7) * 0.2, 1.8),
+          new THREE.Vector3(2.4, 1.9 + Math.cos(t * 1.5) * 0.25, -1.4),
+          new THREE.Vector3(0, 1.7, 0)
+        ];
+        webLine.geometry.setFromPoints(points);
+
+        renderer.render(scene, camera);
+      }
+
+      renderer.setAnimationLoop(animate);
+
+      window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+    </script>
+  </body>
+</html>
